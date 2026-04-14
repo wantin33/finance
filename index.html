@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的財務系統</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg-primary:#ffffff;--bg-secondary:#f5f5f3;--bg-tertiary:#eeede8;
+  --text-primary:#1a1a18;--text-secondary:#6b6b68;--text-tertiary:#9b9b97;
+  --border:rgba(0,0,0,0.11);--border-md:rgba(0,0,0,0.20);
+  --radius-md:8px;--radius-lg:12px;
+  --green-bg:#EAF3DE;--green-dk:#27500A;--green-md:#3B6D11;--green:#1D9E75;
+  --blue-bg:#E6F1FB;--blue-dk:#0C447C;--blue-md:#185FA5;--blue:#378ADD;
+  --red-bg:#FCEBEB;--red-dk:#791F1F;--red-md:#A32D2D;
+  --amber-bg:#FAEEDA;--amber-dk:#633806;--amber-md:#854F0B;
+  --purple:#7F77DD;--purple2:#378ADD;--purple3:#85B7EB;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg-primary:#1e1e1c;--bg-secondary:#2a2a28;--bg-tertiary:#242422;
+    --text-primary:#f0efe8;--text-secondary:#a0a09a;--text-tertiary:#6e6e6a;
+    --border:rgba(255,255,255,0.09);--border-md:rgba(255,255,255,0.18);
+    --green-bg:#0c2614;--green-dk:#9FE1CB;--green-md:#5DCAA5;
+    --blue-bg:#091e33;--blue-dk:#85B7EB;--blue-md:#378ADD;
+    --red-bg:#2a0d0d;--red-dk:#F09595;--red-md:#E24B4A;
+    --amber-bg:#2a1a06;--amber-dk:#FAC775;--amber-md:#EF9F27;
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg-tertiary);color:var(--text-primary);min-height:100vh;}
+.container{max-width:700px;margin:0 auto;padding:24px 16px 80px;}
+.app-title{font-size:22px;font-weight:500;}
+.app-sub{font-size:13px;color:var(--text-secondary);margin-top:3px;}
+.top-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;gap:10px;}
+.tab-row{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
+.tab{font-size:13px;padding:6px 16px;border-radius:99px;border:.5px solid var(--border-md);cursor:pointer;color:var(--text-secondary);background:transparent;transition:all .15s;}
+.tab:hover{background:var(--bg-secondary);}
+.tab.active{background:var(--text-primary);color:var(--bg-primary);border-color:transparent;}
+.sec-label{font-size:11px;font-weight:500;letter-spacing:.07em;color:var(--text-tertiary);text-transform:uppercase;margin:20px 0 10px;}
+.sec-label:first-child{margin-top:0;}
+.card{background:var(--bg-primary);border:.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:10px;}
+.surface{background:var(--bg-secondary);border-radius:var(--radius-md);padding:.9rem 1rem;}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.m-label{font-size:12px;color:var(--text-secondary);margin-bottom:3px;}
+.m-val{font-size:19px;font-weight:500;}
+.m-sub{font-size:11px;color:var(--text-tertiary);margin-top:2px;}
+.divider{border:none;border-top:.5px solid var(--border);margin:18px 0;}
+.block{border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:10px;}
+.arrow{text-align:center;font-size:18px;color:var(--text-tertiary);padding:2px 0;}
+
+/* 三欄表格 */
+.cf-header{display:grid;grid-template-columns:1fr 100px 100px 80px;gap:6px;padding:0 0 6px;border-bottom:.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text-tertiary);letter-spacing:.05em;text-transform:uppercase;}
+.cf-header span:not(:first-child){text-align:right;}
+.cf-row{display:grid;grid-template-columns:1fr 100px 100px 80px;gap:6px;padding:8px 0;border-bottom:.5px solid var(--border);align-items:center;}
+.cf-row:last-child{border-bottom:none;}
+.cf-name{font-size:14px;color:var(--text-secondary);}
+.cf-input{width:100%;font-size:14px;text-align:right;padding:4px 8px;border-radius:var(--radius-md);border:.5px solid var(--border-md);background:var(--bg-secondary);color:var(--text-primary);}
+.cf-input:focus{outline:none;border-color:var(--blue);}
+.cf-diff{font-size:13px;font-weight:500;text-align:right;}
+.diff-over{color:var(--red-md);}
+.diff-save{color:var(--green-md);}
+.diff-zero{color:var(--text-tertiary);}
+
+/* 新增列 */
+.add-row{display:flex;gap:6px;margin-top:8px;}
+.add-row input[type=text]{flex:1;font-size:14px;padding:5px 10px;border-radius:var(--radius-md);border:.5px solid var(--border-md);background:var(--bg-secondary);color:var(--text-primary);}
+.add-row input[type=text]:focus{outline:none;border-color:var(--blue);}
+.add-btn{font-size:13px;padding:5px 12px;border-radius:var(--radius-md);border:.5px dashed var(--border-md);background:transparent;cursor:pointer;color:var(--text-secondary);white-space:nowrap;}
+.add-btn:hover{background:var(--bg-secondary);}
+.del-btn{font-size:11px;padding:2px 6px;border-radius:99px;border:.5px solid var(--border);background:transparent;cursor:pointer;color:var(--text-tertiary);}
+.del-btn:hover{color:var(--red-md);border-color:var(--red-md);}
+
+/* 按鈕 */
+.save-btn{width:100%;padding:11px;font-size:14px;font-weight:500;border-radius:var(--radius-lg);border:none;background:var(--green);color:#fff;cursor:pointer;margin-top:6px;transition:opacity .15s;}
+.save-btn:hover{opacity:.88;}
+.danger-btn{font-size:12px;padding:6px 14px;border-radius:var(--radius-md);border:.5px solid var(--border);background:transparent;cursor:pointer;color:var(--text-tertiary);margin-top:10px;}
+.danger-btn:hover{color:var(--red-md);border-color:var(--red-md);}
+
+/* 投資區塊 */
+.inv-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:.5px solid var(--border);gap:10px;}
+.inv-row:last-child{border-bottom:none;}
+.inv-label{font-size:14px;color:var(--text-secondary);flex:1;}
+.inv-right{display:flex;align-items:center;gap:5px;}
+.inv-right>span{font-size:12px;color:var(--text-tertiary);}
+input.inv-num{width:120px;font-size:14px;text-align:right;padding:5px 8px;border-radius:var(--radius-md);border:.5px solid var(--border-md);background:var(--bg-secondary);color:var(--text-primary);}
+input.inv-num:focus{outline:none;border-color:var(--blue);}
+select{font-size:14px;padding:5px 8px;border-radius:var(--radius-md);border:.5px solid var(--border-md);background:var(--bg-secondary);color:var(--text-primary);}
+
+/* 歷史 */
+.hist-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:.5px solid var(--border);}
+.hist-row:last-child{border-bottom:none;}
+.empty-hint{font-size:13px;color:var(--text-tertiary);text-align:center;padding:24px 0;}
+.badge{font-size:11px;padding:2px 9px;border-radius:99px;display:inline-block;margin-left:6px;}
+.badge-act{background:var(--green-bg);color:var(--green-md);}
+.badge-no{background:var(--bg-secondary);color:var(--text-tertiary);}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="top-row">
+  <div>
+    <div class="app-title">我的財務系統</div>
+    <div class="app-sub" id="hd-month"></div>
+  </div>
+  <select id="month-picker" onchange="loadMonth(this.value)" style="font-size:13px;"></select>
+</div>
+
+<div class="tab-row">
+  <button class="tab active" onclick="goTab('overview',this)">總覽</button>
+  <button class="tab" onclick="goTab('budget',this)">預算</button>
+  <button class="tab" onclick="goTab('actual',this)">實際</button>
+  <button class="tab" onclick="goTab('invest',this)">資產</button>
+  <button class="tab" onclick="goTab('history',this)">歷史</button>
+</div>
+
+<!-- ===== 總覽 ===== -->
+<div id="t-overview">
+
+  <div class="sec-label">本月淨資產</div>
+  <div class="block" id="ov-networth-block" style="background:var(--blue-bg);margin-bottom:6px;">
+    <div style="font-size:13px;color:var(--blue-md);margin-bottom:6px;">銀行現金 ＋ 投資總市值</div>
+    <div style="font-size:32px;font-weight:500;color:var(--blue-dk);" id="ov-networth">NT$ 0</div>
+    <div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:var(--blue-md);">
+      <span>現金 <span id="ov-nw-cash">0</span></span>
+      <span>＋</span>
+      <span>投資 <span id="ov-nw-inv">0</span></span>
+    </div>
+  </div>
+  <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:4px;padding:0 2px;">每個月存入後，可在歷史頁籤看到淨資產的成長曲線。</div>
+
+  <div class="divider"></div>
+  <div class="sec-label">銀行存款</div>
+  <div class="grid2">
+    <div class="surface"><div class="m-label">台新銀行</div><div class="m-val" style="color:var(--blue-md);" id="ov-b1">NT$ 0</div></div>
+    <div class="surface"><div class="m-label">國泰世華</div><div class="m-val" style="color:var(--blue-md);" id="ov-b2">NT$ 0</div></div>
+  </div>
+  <div class="surface" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <span style="font-size:14px;color:var(--text-secondary);">現金合計</span>
+    <span style="font-size:18px;font-weight:500;color:var(--blue-md);" id="ov-cash">NT$ 0</span>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sec-label">投資損益（換算台幣）</div>
+  <div class="grid2">
+    <div class="surface"><div class="m-label">總成本</div><div class="m-val" id="ov-inv-cost">NT$ 0</div><div class="m-sub">買進花多少</div></div>
+    <div class="surface"><div class="m-label">總市值</div><div class="m-val" id="ov-inv-val">NT$ 0</div><div class="m-sub">現在值多少</div></div>
+  </div>
+  <div class="block" id="ov-pnl-block" style="background:var(--red-bg);margin-bottom:14px;">
+    <div style="font-size:13px;margin-bottom:4px;" id="ov-pnl-label">帳面損益</div>
+    <div style="font-size:24px;font-weight:500;" id="ov-pnl">NT$ 0</div>
+    <div style="font-size:12px;margin-top:3px;" id="ov-pnl-sub"></div>
+  </div>
+  <div style="position:relative;width:100%;height:150px;">
+    <canvas id="ov-chart" role="img" aria-label="投資損益比較圖">投資損益圖</canvas>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:12px;" id="ov-legend"></div>
+
+  <div class="divider"></div>
+  <div class="sec-label">預算 vs 實際</div>
+  <div class="grid3" style="margin-bottom:10px;">
+    <div class="surface"><div class="m-label">預算支出</div><div class="m-val" id="ov-bud-exp">NT$ 0</div></div>
+    <div class="surface"><div class="m-label">實際支出</div><div class="m-val" id="ov-act-exp">NT$ 0</div><div class="m-sub" id="ov-act-sub">尚未填入</div></div>
+    <div class="surface" id="ov-diff-card"><div class="m-label" id="ov-diff-label">差異</div><div class="m-val" id="ov-diff">—</div><div class="m-sub" id="ov-diff-sub"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="block" style="background:var(--blue-bg);">
+      <div style="font-size:12px;color:var(--blue-md);margin-bottom:4px;">預算結餘</div>
+      <div style="font-size:22px;font-weight:500;color:var(--blue-dk);" id="ov-bud-surplus">NT$ 0</div>
+      <div style="font-size:11px;color:var(--blue-md);margin-top:2px;">月初計劃剩下的</div>
+    </div>
+    <div class="block" id="ov-act-surplus-block" style="background:var(--bg-secondary);">
+      <div style="font-size:12px;margin-bottom:4px;color:var(--text-secondary);" id="ov-act-surplus-label">實際結餘</div>
+      <div style="font-size:22px;font-weight:500;color:var(--text-secondary);" id="ov-act-surplus">尚未填入</div>
+      <div style="font-size:11px;margin-top:2px;color:var(--text-tertiary);" id="ov-act-surplus-sub">月底填入實際後顯示</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <button class="save-btn" id="save-btn" onclick="saveSnapshot()">存入 <span id="save-month-label"></span> 的紀錄</button>
+  <div style="font-size:12px;color:var(--text-tertiary);text-align:center;margin-top:6px;">存入後可在「歷史」頁籤查看每月比較</div>
+</div>
+
+<!-- ===== 預算 ===== -->
+<div id="t-budget" style="display:none;">
+  <div style="font-size:13px;color:var(--text-secondary);background:var(--blue-bg);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;color:var(--blue-md);">
+    月初在這裡填好每項預算，月底再到「實際」頁籤填實際發生的金額。
+  </div>
+
+  <div class="sec-label">收入</div>
+  <div class="card" id="bud-income-list"></div>
+  <div class="add-row">
+    <input type="text" id="new-bud-income-name" placeholder="收入名稱">
+    <button class="add-btn" onclick="addBudItem('income')">＋ 新增</button>
+  </div>
+
+  <div class="sec-label" style="margin-top:20px;">固定支出</div>
+  <div class="card">
+    <div class="cf-header"><span>項目</span><span>預算金額</span></div>
+    <div id="bud-fixed-list"></div>
+  </div>
+  <div class="add-row">
+    <input type="text" id="new-bud-fixed-name" placeholder="支出名稱">
+    <button class="add-btn" onclick="addBudItem('fixed')">＋ 新增</button>
+  </div>
+
+  <div class="sec-label" style="margin-top:20px;">生活支出</div>
+  <div class="card">
+    <div class="cf-header"><span>項目</span><span>預算金額</span></div>
+    <div id="bud-daily-list"></div>
+  </div>
+  <div class="add-row">
+    <input type="text" id="new-bud-daily-name" placeholder="支出名稱">
+    <button class="add-btn" onclick="addBudItem('daily')">＋ 新增</button>
+  </div>
+
+  <div class="sec-label" style="margin-top:20px;">預存項目</div>
+  <div class="card">
+    <div class="cf-header"><span>項目</span><span>預算金額</span></div>
+    <div id="bud-reserve-list"></div>
+  </div>
+  <div class="add-row">
+    <input type="text" id="new-bud-reserve-name" placeholder="預存名稱">
+    <button class="add-btn" onclick="addBudItem('reserve')">＋ 新增</button>
+  </div>
+
+  <div class="sec-label" style="margin-top:20px;">投資預算</div>
+  <div class="card">
+    <div class="cf-header"><span>項目</span><span>預算金額</span></div>
+    <div id="bud-invest-list"></div>
+  </div>
+  <div class="add-row">
+    <input type="text" id="new-bud-invest-name" placeholder="投資項目名稱">
+    <button class="add-btn" onclick="addBudItem('invest')">＋ 新增</button>
+  </div>
+
+</div>
+
+<!-- ===== 實際 ===== -->
+<div id="t-actual" style="display:none;">
+  <div style="font-size:13px;background:var(--green-bg);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;color:var(--green-md);">
+    月底在這裡填入實際發生的金額，總覽會自動顯示與預算的差異。
+  </div>
+
+  <div class="sec-label">固定支出</div>
+  <div class="card" id="act-fixed-list"></div>
+
+  <div class="sec-label" style="margin-top:20px;">生活支出</div>
+  <div class="card" id="act-daily-list"></div>
+
+  <div class="sec-label" style="margin-top:20px;">預存項目</div>
+  <div class="card" id="act-reserve-list"></div>
+
+  <div class="sec-label" style="margin-top:20px;">投資</div>
+  <div class="card" id="act-invest-list"></div>
+</div>
+
+<!-- ===== 資產 ===== -->
+<div id="t-invest" style="display:none;">
+  <div style="font-size:13px;background:var(--blue-bg);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;color:var(--blue-md);">
+    月底記錄當下的銀行存款與投資現況，這些數字會反映在總覽的淨資產上。
+  </div>
+
+  <div class="sec-label">銀行存款</div>
+  <div class="card">
+    <div class="inv-row"><span class="inv-label">台新銀行</span><div class="inv-right"><span>NT$</span><input class="inv-num" type="number" id="b-taishin" value="0" oninput="recalc()"></div></div>
+    <div class="inv-row"><span class="inv-label">國泰世華</span><div class="inv-right"><span>NT$</span><input class="inv-num" type="number" id="b-cathay" value="0" oninput="recalc()"></div></div>
+  </div>
+
+  <div class="sec-label" style="margin-top:20px;">台股</div>
+  <div class="card">
+    <div class="inv-row"><span class="inv-label">目前市值</span><div class="inv-right"><span>NT$</span><input class="inv-num" type="number" id="tw-val" value="0" oninput="recalc()"></div></div>
+    <div class="inv-row"><span class="inv-label">買進成本</span><div class="inv-right"><span>NT$</span><input class="inv-num" type="number" id="tw-cost" value="0" oninput="recalc()"></div></div>
+  </div>
+  <div class="sec-label">複委託（台幣）</div>
+  <div class="card">
+    <div class="inv-row"><span class="inv-label">目前市值</span><div class="inv-right"><span>NT$</span><input class="inv-num" type="number" id="fp-val" value="0" oninput="recalc()"></div></div>
+    <div class="inv-row"><span class="inv-label">買進成本</span><div class="inv-right"><span>NT$</span><input class="inv-num" type="number" id="fp-cost" value="0" oninput="recalc()"></div></div>
+  </div>
+  <div class="sec-label">複委託（外幣）</div>
+  <div class="card">
+    <div class="inv-row">
+      <span class="inv-label">幣別</span>
+      <select id="fx-currency" onchange="recalc()">
+        <option value="USD">美金 USD</option>
+        <option value="JPY">日圓 JPY</option>
+        <option value="EUR">歐元 EUR</option>
+        <option value="GBP">英鎊 GBP</option>
+      </select>
+    </div>
+    <div class="inv-row"><span class="inv-label">匯率（1外幣 = ? 台幣）</span><div class="inv-right"><input class="inv-num" type="number" id="fx-rate" value="32" step="0.01" oninput="recalc()"></div></div>
+    <div class="inv-row"><span class="inv-label">目前市值（外幣）</span><div class="inv-right"><span id="fx-sym">USD</span><input class="inv-num" type="number" id="fx-val" value="0" oninput="recalc()"></div></div>
+    <div class="inv-row"><span class="inv-label">買進成本（外幣）</span><div class="inv-right"><span id="fx-sym2">USD</span><input class="inv-num" type="number" id="fx-cost" value="0" oninput="recalc()"></div></div>
+    <div style="background:var(--bg-secondary);border-radius:var(--radius-md);padding:8px 10px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;color:var(--text-secondary);">換算台幣市值</span>
+      <span style="font-size:14px;font-weight:500;color:var(--blue-md);" id="fx-converted">NT$ 0</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 歷史 ===== -->
+<div id="t-history" style="display:none;">
+  <div class="sec-label">淨資產成長曲線</div>
+  <div style="position:relative;width:100%;height:200px;margin-bottom:8px;">
+    <canvas id="hist-nw-chart" role="img" aria-label="每月淨資產趨勢圖">淨資產成長曲線</canvas>
+  </div>
+  <div style="display:flex;gap:16px;font-size:12px;color:var(--text-secondary);margin-bottom:20px;">
+    <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:3px;background:#7F77DD;display:inline-block;border-radius:2px;"></span>淨資產（現金＋投資）</span>
+  </div>
+
+  <div class="sec-label">每月結餘趨勢</div>
+  <div style="position:relative;width:100%;height:180px;margin-bottom:8px;">
+    <canvas id="hist-chart" role="img" aria-label="每月預算結餘與實際結餘趨勢圖">每月結餘趨勢</canvas>
+  </div>
+  <div style="display:flex;gap:16px;font-size:12px;color:var(--text-secondary);margin-bottom:20px;">
+    <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:3px;background:#378ADD;display:inline-block;border-radius:2px;"></span>預算結餘</span>
+    <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:3px;background:#1D9E75;display:inline-block;border-radius:2px;border-bottom:2px dashed #1D9E75;"></span>實際結餘</span>
+  </div>
+
+  <div class="sec-label">歷史紀錄</div>
+  <div class="card" id="hist-list"><div class="empty-hint">還沒有紀錄，先在總覽頁按「存入」！</div></div>
+  <button class="danger-btn" onclick="clearHistory()">清除所有歷史</button>
+</div>
+
+</div>
+<script>
+const TYPES = ['income','fixed','daily','reserve','invest'];
+
+const DATA = {
+  budget: {
+    income:  [{name:'薪水',val:0},{name:'獎金',val:0}],
+    fixed:   [{name:'房貸',val:0},{name:'車貸',val:0},{name:'信貸',val:0},{name:'管理費',val:0},{name:'電費',val:0}],
+    daily:   [{name:'餐費',val:0},{name:'交通',val:0},{name:'保健',val:0},{name:'美甲美睫',val:0},{name:'特別預算',val:0}],
+    reserve: [{name:'女兒註冊費',val:0},{name:'年繳保險費',val:0}],
+    invest:  [{name:'台股投資',val:0}]
+  },
+  actual: {
+    fixed:   {},
+    daily:   {},
+    reserve: {},
+    invest:  {}
+  }
+};
+
+let ovChart=null, histChart=null;
+let snapshots=[];
+try{ snapshots=JSON.parse(localStorage.getItem('finance_v2_snapshots')||'[]'); }catch(e){}
+
+function n(id){ return Number(document.getElementById(id)?.value)||0; }
+function fmt(v){ return 'NT$ '+Math.round(v).toLocaleString(); }
+function sumArr(arr){ return arr.reduce((s,x)=>s+Number(x.val),0); }
+function sumAct(type){
+  return DATA.budget[type].reduce((s,item,i)=>{
+    const v = DATA.actual[type][i] !== undefined ? Number(DATA.actual[type][i]) : 0;
+    return s + v;
+  },0);
+}
+function hasActual(){
+  return ['fixed','daily','reserve','invest'].some(t=>
+    Object.values(DATA.actual[t]).some(v=>v>0)
+  );
+}
+
+function initMonthPicker(){
+  const now=new Date();
+  const picker=document.getElementById('month-picker');
+  const months=[];
+  for(let i=0;i<13;i++){
+    let m=now.getMonth()-i, y=now.getFullYear();
+    if(m<0){m+=12;y--;}
+    months.push({label:y+'年'+(m+1)+'月',val:y+'-'+(m+1)});
+  }
+  picker.innerHTML=months.map(m=>`<option value="${m.val}">${m.label}</option>`).join('');
+  const updateLabel=()=>{
+    const lbl=picker.options[picker.selectedIndex].text;
+    document.getElementById('hd-month').textContent=lbl;
+    document.getElementById('save-month-label').textContent=lbl;
+  };
+  updateLabel();
+  picker.addEventListener('change',updateLabel);
+}
+
+function loadMonth(val){
+  const snap=snapshots.find(s=>s.key===val);
+  if(!snap) return;
+  if(snap.budget) TYPES.forEach(t=>{ if(snap.budget[t]) DATA.budget[t]=JSON.parse(JSON.stringify(snap.budget[t])); });
+  if(snap.actual) ['fixed','daily','reserve','invest'].forEach(t=>{ DATA.actual[t]=snap.actual[t]?JSON.parse(JSON.stringify(snap.actual[t])):{};});
+  ['b-taishin','b-cathay','tw-val','tw-cost','fp-val','fp-cost','fx-rate','fx-val','fx-cost'].forEach(id=>{
+    if(snap.fields && snap.fields[id]!==undefined) document.getElementById(id).value=snap.fields[id];
+  });
+  renderBudget(); renderActual(); recalc();
+}
+
+function saveSnapshot(){
+  const picker=document.getElementById('month-picker');
+  const key=picker.value, label=picker.options[picker.selectedIndex].text;
+  const rate=n('fx-rate');
+  const budExp = sumArr(DATA.budget.fixed)+sumArr(DATA.budget.daily)+sumArr(DATA.budget.reserve)+sumArr(DATA.budget.invest);
+  const actExp = hasActual() ? ['fixed','daily','reserve','invest'].reduce((s,t)=>s+sumAct(t),0) : null;
+  const snap={
+    key, label,
+    budget: JSON.parse(JSON.stringify(DATA.budget)),
+    actual: JSON.parse(JSON.stringify(DATA.actual)),
+    fields:{
+      'b-taishin':n('b-taishin'),'b-cathay':n('b-cathay'),
+      'tw-val':n('tw-val'),'tw-cost':n('tw-cost'),
+      'fp-val':n('fp-val'),'fp-cost':n('fp-cost'),
+      'fx-rate':rate,'fx-val':n('fx-val'),'fx-cost':n('fx-cost')
+    },
+    budIncome: sumArr(DATA.budget.income),
+    budExp, budSurplus: sumArr(DATA.budget.income)-budExp,
+    actExp, actSurplus: actExp!==null ? sumArr(DATA.budget.income)-actExp : null,
+    invVal: n('tw-val')+n('fp-val')+n('fx-val')*rate,
+    invCost: n('tw-cost')+n('fp-cost')+n('fx-cost')*rate,
+    netWorth: (n('b-taishin')+n('b-cathay')) + (n('tw-val')+n('fp-val')+n('fx-val')*rate)
+  };
+  const idx=snapshots.findIndex(s=>s.key===key);
+  if(idx>=0) snapshots[idx]=snap; else snapshots.push(snap);
+  snapshots.sort((a,b)=>a.key>b.key?1:-1);
+  try{ localStorage.setItem('finance_v2_snapshots',JSON.stringify(snapshots)); }catch(e){}
+  const btn=document.getElementById('save-btn');
+  btn.textContent='已存入 '+label+' ！';
+  setTimeout(()=>{ btn.innerHTML='存入 <span id="save-month-label">'+label+'</span> 的紀錄'; },2000);
+}
+
+function clearHistory(){
+  if(!confirm('確定要清除所有歷史紀錄嗎？')) return;
+  snapshots=[];
+  try{ localStorage.removeItem('finance_v2_snapshots'); }catch(e){}
+  renderHistory();
+}
+
+// ─── 渲染預算列表 ───
+function renderBudItem(type, i){
+  const item = DATA.budget[type][i];
+  if(type==='income'){
+    return `<div class="inv-row">
+      <span class="inv-label">${item.name}</span>
+      <div class="inv-right">
+        <span>NT$</span>
+        <input class="inv-num" type="number" value="${item.val}" oninput="DATA.budget['${type}'][${i}].val=Number(this.value);recalc()">
+        <button class="del-btn" onclick="delBudItem('${type}',${i})">✕</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="cf-row">
+    <span class="cf-name">${item.name}</span>
+    <input class="cf-input" type="number" value="${item.val}" oninput="DATA.budget['${type}'][${i}].val=Number(this.value);recalc();renderActualType('${type}')">
+    <span></span>
+    <button class="del-btn" onclick="delBudItem('${type}',${i})">✕</button>
+  </div>`;
+}
+function renderBudgetType(type){
+  const el = document.getElementById('bud-'+type+'-list');
+  if(!el) return;
+  el.innerHTML = DATA.budget[type].map((_,i)=>renderBudItem(type,i)).join('');
+}
+function renderBudget(){ ['income','fixed','daily','reserve','invest'].forEach(renderBudgetType); }
+
+// ─── 渲染實際列表 ───
+function renderActualType(type){
+  const el = document.getElementById('act-'+type+'-list');
+  if(!el) return;
+  if(!DATA.budget[type].length){
+    el.innerHTML='<div style="font-size:13px;color:var(--text-tertiary);padding:10px 0;text-align:center;">尚無項目</div>';
+    return;
+  }
+  el.innerHTML = DATA.budget[type].map((item,i)=>{
+    const bv = Number(item.val);
+    const av = DATA.actual[type][i] !== undefined ? Number(DATA.actual[type][i]) : '';
+    const diff = av !== '' ? (bv - av) : null;
+    let diffBadge = '';
+    if(diff !== null){
+      if(diff > 0) diffBadge = `<span style="font-size:12px;font-weight:500;color:var(--green-md);">節省 ${Math.round(diff).toLocaleString()}</span>`;
+      else if(diff < 0) diffBadge = `<span style="font-size:12px;font-weight:500;color:var(--red-md);">超支 ${Math.round(-diff).toLocaleString()}</span>`;
+      else diffBadge = `<span style="font-size:12px;color:var(--text-tertiary);">剛好</span>`;
+    }
+    return `<div style="padding:10px 0;border-bottom:.5px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:14px;color:var(--text-primary);font-weight:500;">${item.name}</span>
+        <span style="font-size:12px;color:var(--text-tertiary);">預算 ${bv>0?bv.toLocaleString():'—'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:var(--text-tertiary);white-space:nowrap;">實際 NT$</span>
+        <input type="number" value="${av}" placeholder="填入金額"
+          style="flex:1;font-size:16px;padding:8px 12px;border-radius:var(--radius-md);border:.5px solid var(--border-md);background:var(--bg-secondary);color:var(--text-primary);text-align:right;"
+          oninput="DATA.actual['${type}'][${i}]=this.value===''?undefined:Number(this.value);recalc();updateDiff('${type}',${i},this.value)">
+        <div style="min-width:70px;text-align:right;" id="diff-${type}-${i}">${diffBadge}</div>
+      </div>
+    </div>`;
+  }).join('').replace(/style="padding:10px 0;border-bottom:.5px solid var\(--border\);">(?=[^]*?<\/div>\s*$)/,'style="padding:10px 0;">');
+}
+
+function updateDiff(type, i, rawVal){
+  const bv = Number(DATA.budget[type][i]?.val||0);
+  const av = rawVal===''?null:Number(rawVal);
+  const el = document.getElementById('diff-'+type+'-'+i);
+  if(!el) return;
+  if(av===null){ el.innerHTML=''; return; }
+  const diff = bv - av;
+  if(diff>0) el.innerHTML=`<span style="font-size:12px;font-weight:500;color:var(--green-md);">節省 ${Math.round(diff).toLocaleString()}</span>`;
+  else if(diff<0) el.innerHTML=`<span style="font-size:12px;font-weight:500;color:var(--red-md);">超支 ${Math.round(-diff).toLocaleString()}</span>`;
+  else el.innerHTML=`<span style="font-size:12px;color:var(--text-tertiary);">剛好</span>`;
+}
+
+function renderActual(){ ['fixed','daily','reserve','invest'].forEach(renderActualType); }
+
+function addBudItem(type){
+  const nameEl = document.getElementById('new-bud-'+type+'-name');
+  const name = nameEl.value.trim();
+  if(!name) return;
+  DATA.budget[type].push({name, val:0});
+  nameEl.value='';
+  renderBudgetType(type);
+  renderActualType(type);
+  recalc();
+}
+function delBudItem(type, i){
+  DATA.budget[type].splice(i,1);
+  const newAct={};
+  Object.keys(DATA.actual[type]||{}).forEach(k=>{ if(Number(k)<i) newAct[k]=DATA.actual[type][k]; else if(Number(k)>i) newAct[String(Number(k)-1)]=DATA.actual[type][k]; });
+  if(DATA.actual[type]) DATA.actual[type]=newAct;
+  renderBudgetType(type);
+  renderActualType(type);
+  recalc();
+}
+
+function recalc(){
+  const currency=document.getElementById('fx-currency').value;
+  document.getElementById('fx-sym').textContent=currency;
+  document.getElementById('fx-sym2').textContent=currency;
+  const rate=n('fx-rate');
+  const fxVal=n('fx-val')*rate, fxCost=n('fx-cost')*rate;
+  document.getElementById('fx-converted').textContent=fmt(fxVal);
+
+  const totalIncome = sumArr(DATA.budget.income);
+  const budExp = sumArr(DATA.budget.fixed)+sumArr(DATA.budget.daily)+sumArr(DATA.budget.reserve)+sumArr(DATA.budget.invest);
+  const budSurplus = totalIncome - budExp;
+  const actExpRaw = ['fixed','daily','reserve','invest'].reduce((s,t)=>s+sumAct(t),0);
+  const actFilled = hasActual();
+  const actSurplus = totalIncome - actExpRaw;
+  const diff = actFilled ? actExpRaw - budExp : null;
+
+  const b1=n('b-taishin'), b2=n('b-cathay');
+  const twVal=n('tw-val'), twCost=n('tw-cost');
+  const fpVal=n('fp-val'), fpCost=n('fp-cost');
+  const invTotalVal=twVal+fpVal+fxVal, invTotalCost=twCost+fpCost+fxCost;
+  const pnl=invTotalVal-invTotalCost;
+  const pnlPct=invTotalCost>0?(pnl/invTotalCost*100).toFixed(1):'0.0';
+
+  document.getElementById('ov-bud-exp').textContent=fmt(budExp);
+  document.getElementById('ov-act-exp').textContent=actFilled?fmt(actExpRaw):'NT$ —';
+  document.getElementById('ov-act-sub').textContent=actFilled?'月底實際支出':'尚未填入';
+
+  // 差異卡片
+  const dc=document.getElementById('ov-diff-card');
+  const dLabel=document.getElementById('ov-diff-label');
+  const dEl=document.getElementById('ov-diff');
+  const dSub=document.getElementById('ov-diff-sub');
+  if(diff===null){
+    dc.style.background='var(--bg-secondary)'; dLabel.style.color='var(--text-secondary)';
+    dEl.style.color='var(--text-tertiary)'; dEl.textContent='—'; dSub.textContent='';
+  } else if(diff>0){
+    dc.style.background='var(--red-bg)'; dLabel.style.color='var(--red-md)'; dLabel.textContent='超支了';
+    dEl.style.color='var(--red-dk)'; dEl.textContent='+'+Math.round(diff).toLocaleString();
+    dSub.style.color='var(--red-md)'; dSub.textContent='實際比預算多花了這些';
+  } else if(diff<0){
+    dc.style.background='var(--green-bg)'; dLabel.style.color='var(--green-md)'; dLabel.textContent='節省了';
+    dEl.style.color='var(--green-dk)'; dEl.textContent=Math.round(-diff).toLocaleString();
+    dSub.style.color='var(--green-md)'; dSub.textContent='實際比預算少花了這些';
+  } else {
+    dc.style.background='var(--bg-secondary)'; dLabel.textContent='剛好';
+    dEl.style.color='var(--text-secondary)'; dEl.textContent='0'; dSub.textContent='';
+  }
+
+  // 預算結餘
+  document.getElementById('ov-bud-surplus').textContent=fmt(budSurplus);
+
+  // 實際結餘
+  const asb=document.getElementById('ov-act-surplus-block');
+  const asLabel=document.getElementById('ov-act-surplus-label');
+  const asEl=document.getElementById('ov-act-surplus');
+  const asSub=document.getElementById('ov-act-surplus-sub');
+  if(!actFilled){
+    asb.style.background='var(--bg-secondary)';
+    asLabel.style.color='var(--text-secondary)'; asLabel.textContent='實際結餘';
+    asEl.style.color='var(--text-tertiary)'; asEl.textContent='尚未填入';
+    asSub.style.color='var(--text-tertiary)'; asSub.textContent='月底填入實際後顯示';
+  } else if(actSurplus>=0){
+    asb.style.background='var(--green-bg)';
+    asLabel.style.color='var(--green-md)'; asLabel.textContent='實際結餘';
+    asEl.style.color='var(--green-dk)'; asEl.textContent=fmt(actSurplus);
+    asSub.style.color='var(--green-md)'; asSub.textContent='實際剩下的錢';
+  } else {
+    asb.style.background='var(--red-bg)';
+    asLabel.style.color='var(--red-md)'; asLabel.textContent='實際超支！';
+    asEl.style.color='var(--red-dk)'; asEl.textContent=fmt(actSurplus);
+    asSub.style.color='var(--red-md)'; asSub.textContent='支出超過收入';
+  }
+
+  document.getElementById('ov-b1').textContent=fmt(b1);
+  document.getElementById('ov-b2').textContent=fmt(b2);
+  document.getElementById('ov-cash').textContent=fmt(b1+b2);
+  document.getElementById('ov-inv-cost').textContent=fmt(invTotalCost);
+  document.getElementById('ov-inv-val').textContent=fmt(invTotalVal);
+
+  const netWorth = (b1+b2) + invTotalVal;
+  document.getElementById('ov-networth').textContent=fmt(netWorth);
+  document.getElementById('ov-nw-cash').textContent=(b1+b2).toLocaleString();
+  document.getElementById('ov-nw-inv').textContent=Math.round(invTotalVal).toLocaleString();
+
+  const pb=document.getElementById('ov-pnl-block');
+  const pLabel=document.getElementById('ov-pnl-label');
+  const pEl=document.getElementById('ov-pnl');
+  const pSub=document.getElementById('ov-pnl-sub');
+  const isPos=pnl>=0;
+  pb.style.background=isPos?'var(--green-bg)':'var(--red-bg)';
+  pLabel.style.color=isPos?'var(--green-md)':'var(--red-md)';
+  pLabel.textContent=isPos?'帳面賺了':'帳面賠了';
+  pEl.style.color=isPos?'var(--green-dk)':'var(--red-dk)';
+  pEl.textContent=(isPos?'+':'－')+fmt(Math.abs(pnl));
+  pSub.style.color=isPos?'var(--green-md)':'var(--red-md)';
+  pSub.textContent=(isPos?'獲利 ':'虧損 ')+Math.abs(pnlPct)+'%';
+
+  const colors=['#7F77DD','#378ADD','#85B7EB'];
+  const vals=[twVal,fpVal,fxVal], costs=[twCost,fpCost,fxCost];
+  if(ovChart) ovChart.destroy();
+  ovChart=new Chart(document.getElementById('ov-chart'),{
+    type:'bar',
+    data:{labels:['台股','複委託台幣','複委託外幣'],datasets:[
+      {label:'現在市值',data:vals,backgroundColor:colors,borderRadius:5,borderSkipped:false},
+      {label:'買進成本',data:costs,backgroundColor:colors.map(c=>c+'33'),borderRadius:5,borderSkipped:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' NT$ '+Math.round(ctx.raw).toLocaleString()}}},
+      scales:{x:{ticks:{callback:v=>(v/10000).toFixed(0)+'萬',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}},
+        y:{ticks:{font:{size:12}},grid:{display:false}}}}
+  });
+  document.getElementById('ov-legend').innerHTML=
+    ['台股','複委託台幣','複委託外幣'].map((l,i)=>{
+      const d=vals[i]-costs[i];
+      const c=d>=0?'#1D9E75':'#E24B4A';
+      return `<span style="display:flex;align-items:center;gap:4px;">
+        <span style="width:10px;height:10px;border-radius:2px;background:${colors[i]};display:inline-block;"></span>
+        <span style="color:var(--text-secondary);">${l}</span>
+        <span style="color:${c};">${d>=0?'+':'－'}${Math.abs(Math.round(d)).toLocaleString()}</span>
+      </span>`;
+    }).join('');
+}
+
+let histNwChart=null;
+
+function renderHistory(){
+  const list=document.getElementById('hist-list');
+  if(!snapshots.length){
+    list.innerHTML='<div class="empty-hint">還沒有紀錄，先在總覽頁按「存入」！</div>';
+    if(histChart){histChart.destroy();histChart=null;}
+    if(histNwChart){histNwChart.destroy();histNwChart=null;}
+    return;
+  }
+
+  list.innerHTML=[...snapshots].reverse().map(s=>{
+    const hasAct = s.actSurplus!==null && s.actSurplus!==undefined;
+    const nw = s.netWorth || 0;
+    const sc = s.budSurplus>=0?'#185FA5':'#E24B4A';
+    const ac = hasAct?(s.actSurplus>=0?'#1D9E75':'#E24B4A'):null;
+    return `<div class="hist-row">
+      <div>
+        <div style="font-size:14px;font-weight:500;">${s.label}</div>
+        <div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;">
+          收入 ${Math.round(s.budIncome||0).toLocaleString()}　預算支出 ${Math.round(s.budExp||0).toLocaleString()}
+        </div>
+        <div style="font-size:12px;color:#7F77DD;margin-top:2px;font-weight:500;">
+          淨資產 NT$ ${Math.round(nw).toLocaleString()}
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:13px;font-weight:500;color:${sc};">預算 ${(s.budSurplus>=0?'+':'')+Math.round(s.budSurplus||0).toLocaleString()}</div>
+        ${hasAct
+          ?`<div style="font-size:13px;font-weight:500;color:${ac};margin-top:2px;">實際 ${(s.actSurplus>=0?'+':'')+Math.round(s.actSurplus).toLocaleString()} <span class="badge badge-act">已填</span></div>`
+          :`<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;"><span class="badge badge-no">未填實際</span></div>`}
+      </div>
+    </div>`;
+  }).join('');
+
+  if(snapshots.length>=2){
+    const labels=snapshots.map(s=>s.label);
+    const nwData=snapshots.map(s=>Math.round(s.netWorth||0));
+    const budData=snapshots.map(s=>Math.round(s.budSurplus||0));
+    const actData=snapshots.map(s=>s.actSurplus!==null&&s.actSurplus!==undefined?Math.round(s.actSurplus):null);
+
+    if(histNwChart) histNwChart.destroy();
+    histNwChart=new Chart(document.getElementById('hist-nw-chart'),{
+      type:'line',
+      data:{labels,datasets:[{
+        label:'淨資產',data:nwData,
+        borderColor:'#7F77DD',backgroundColor:'rgba(127,119,221,0.08)',
+        fill:true,tension:0.4,pointRadius:5,pointBackgroundColor:'#7F77DD',borderWidth:2
+      }]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'淨資產 NT$'+Math.round(ctx.raw||0).toLocaleString()}}},
+        scales:{
+          y:{ticks:{callback:v=>'$'+(v/10000).toFixed(0)+'萬',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}},
+          x:{ticks:{font:{size:11}},grid:{display:false}}
+        }}
+    });
+
+    if(histChart) histChart.destroy();
+    histChart=new Chart(document.getElementById('hist-chart'),{
+      type:'line',
+      data:{labels,datasets:[
+        {label:'預算結餘',data:budData,borderColor:'#378ADD',backgroundColor:'rgba(55,138,221,0.06)',
+          fill:true,tension:0.4,pointRadius:5,pointBackgroundColor:'#378ADD',borderWidth:2,pointStyle:'circle'},
+        {label:'實際結餘',data:actData,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.06)',
+          fill:true,tension:0.4,pointRadius:5,pointBackgroundColor:'#1D9E75',borderWidth:2,
+          borderDash:[5,4],pointStyle:'rectRot',spanGaps:false}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+' NT$'+Math.round(ctx.raw||0).toLocaleString()}}},
+        scales:{
+          y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}},
+          x:{ticks:{font:{size:11}},grid:{display:false}}
+        }}
+    });
+  }
+}
+
+function goTab(name,el){
+  ['overview','budget','actual','invest','history'].forEach(t=>document.getElementById('t-'+t).style.display='none');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('t-'+name).style.display='block';
+  el.classList.add('active');
+  if(name==='history') renderHistory();
+  if(name==='actual') renderActual();
+}
+
+initMonthPicker();
+renderBudget();
+renderActual();
+recalc();
+</script>
+</body>
+</html>
