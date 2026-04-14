@@ -368,19 +368,24 @@ function initMonthPicker(){
   const now=new Date();
   const picker=document.getElementById('month-picker');
   const months=[];
-  for(let i=0;i<13;i++){
+  // 未來3個月 ＋ 當月 ＋ 過去12個月
+  for(let i=-3;i<13;i++){
     let m=now.getMonth()-i, y=now.getFullYear();
     if(m<0){m+=12;y--;}
+    if(m>11){m-=12;y++;}
     months.push({label:y+'年'+(m+1)+'月',val:y+'-'+(m+1)});
   }
   picker.innerHTML=months.map(m=>`<option value="${m.val}">${m.label}</option>`).join('');
+  picker.value=now.getFullYear()+'-'+(now.getMonth()+1);
   const updateLabel=()=>{
     const lbl=picker.options[picker.selectedIndex].text;
     document.getElementById('hd-month').textContent=lbl;
     document.getElementById('save-month-label').textContent=lbl;
   };
   updateLabel();
-  picker.addEventListener('change',updateLabel);
+  picker.addEventListener('change',()=>{ updateLabel(); loadMonth(picker.value); });
+  // 頁面載入時自動帶出已存的資料
+  loadMonth(picker.value);
 }
 
 function loadMonth(val){
