@@ -106,7 +106,10 @@ select{font-size:14px;padding:5px 8px;border-radius:var(--radius-md);border:.5px
     <div class="app-title">我的財務系統</div>
     <div class="app-sub" id="hd-month"></div>
   </div>
-  <select id="month-picker" onchange="loadMonth(this.value)" style="font-size:13px;"></select>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <select id="month-picker" style="font-size:13px;"></select>
+    <button onclick="openAddMonth()" style="font-size:13px;padding:5px 10px;border-radius:var(--radius-md);border:.5px dashed var(--border-md);background:transparent;cursor:pointer;color:var(--text-secondary);white-space:nowrap;">＋ 月份</button>
+  </div>
 </div>
 
 <div class="tab-row">
@@ -326,6 +329,38 @@ select{font-size:14px;padding:5px 8px;border-radius:var(--radius-md);border:.5px
 </div>
 
 </div>
+
+<!-- ===== 新增月份 Modal ===== -->
+<div id="add-month-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-primary);border-radius:var(--radius-lg);padding:24px;width:300px;max-width:90vw;border:.5px solid var(--border-md);">
+    <div style="font-size:16px;font-weight:500;margin-bottom:16px;">新增 / 切換月份</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">年份</div>
+        <input type="number" id="new-month-year" oninput="updateAddMonthHint()" style="width:100%;font-size:15px;padding:8px 10px;border-radius:var(--radius-md);border:.5px solid var(--border-md);background:var(--bg-secondary);color:var(--text-primary);">
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">月份</div>
+        <select id="new-month-month" onchange="updateAddMonthHint()" style="width:100%;font-size:15px;padding:8px 10px;border-radius:var(--radius-md);border:.5px solid var(--border-md);background:var(--bg-secondary);color:var(--text-primary);">
+          <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+          <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+          <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+          <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+        </select>
+      </div>
+    </div>
+    <div id="add-month-hint" style="font-size:12px;min-height:18px;margin-bottom:12px;padding:6px 10px;border-radius:var(--radius-md);background:var(--bg-secondary);color:var(--text-tertiary);"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);margin-bottom:18px;cursor:pointer;">
+      <input type="checkbox" id="copy-budget-check" checked>
+      複製最近一個月的預算項目與金額
+    </label>
+    <div style="display:flex;gap:8px;">
+      <button onclick="closeAddMonth()" style="flex:1;padding:10px;border-radius:var(--radius-md);border:.5px solid var(--border-md);background:transparent;cursor:pointer;color:var(--text-secondary);font-size:14px;">取消</button>
+      <button onclick="confirmAddMonth()" style="flex:1;padding:10px;border-radius:var(--radius-md);border:none;background:var(--green);color:#fff;cursor:pointer;font-weight:500;font-size:14px;">確定</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const TYPES = ['income','fixed','daily','reserve','invest'];
 
@@ -349,6 +384,17 @@ let ovChart=null, histChart=null;
 let snapshots=[];
 try{ snapshots=JSON.parse(localStorage.getItem('finance_v2_snapshots')||'[]'); }catch(e){}
 
+// 所有使用者建立過的月份清單（比 snapshots 更早存在）
+let activeMonths=[];
+try{ activeMonths=JSON.parse(localStorage.getItem('finance_v2_months')||'[]'); }catch(e){}
+// 同步：確保所有 snapshot 月份都在 activeMonths 裡
+snapshots.forEach(s=>{ if(!activeMonths.includes(s.key)) activeMonths.push(s.key); });
+// 確保當月永遠存在
+const _now=new Date();
+const _curKey=_now.getFullYear()+'-'+(_now.getMonth()+1);
+if(!activeMonths.includes(_curKey)) activeMonths.push(_curKey);
+try{ localStorage.setItem('finance_v2_months',JSON.stringify(activeMonths)); }catch(e){}
+
 function n(id){ return Number(document.getElementById(id)?.value)||0; }
 function fmt(v){ return 'NT$ '+Math.round(v).toLocaleString(); }
 function sumArr(arr){ return arr.reduce((s,x)=>s+Number(x.val),0); }
@@ -364,28 +410,108 @@ function hasActual(){
   );
 }
 
-function initMonthPicker(){
-  const now=new Date();
+function getMonthLabel(key){
+  const [y,m]=key.split('-').map(Number);
+  return y+'年'+m+'月';
+}
+
+function updateLabel(){
   const picker=document.getElementById('month-picker');
-  const months=[];
-  // 未來3個月 ＋ 當月 ＋ 過去12個月
-  for(let i=-3;i<13;i++){
-    let m=now.getMonth()-i, y=now.getFullYear();
-    if(m<0){m+=12;y--;}
-    if(m>11){m-=12;y++;}
-    months.push({label:y+'年'+(m+1)+'月',val:y+'-'+(m+1)});
-  }
-  picker.innerHTML=months.map(m=>`<option value="${m.val}">${m.label}</option>`).join('');
-  picker.value=now.getFullYear()+'-'+(now.getMonth()+1);
-  const updateLabel=()=>{
-    const lbl=picker.options[picker.selectedIndex].text;
-    document.getElementById('hd-month').textContent=lbl;
-    document.getElementById('save-month-label').textContent=lbl;
-  };
+  if(!picker||!picker.options[picker.selectedIndex]) return;
+  const lbl=picker.options[picker.selectedIndex].text;
+  document.getElementById('hd-month').textContent=lbl;
+  document.getElementById('save-month-label').textContent=lbl;
+}
+
+function rebuildPicker(selectKey){
+  const picker=document.getElementById('month-picker');
+  const sorted=[...activeMonths].sort((a,b)=>{
+    const [ay,am]=a.split('-').map(Number), [by,bm]=b.split('-').map(Number);
+    return (by*12+bm)-(ay*12+am);
+  });
+  picker.innerHTML=sorted.map(k=>`<option value="${k}">${getMonthLabel(k)}</option>`).join('');
+  if(selectKey && sorted.includes(selectKey)) picker.value=selectKey;
+  else picker.value=sorted[0]||_curKey;
   updateLabel();
+}
+
+function initMonthPicker(){
+  rebuildPicker(_curKey);
+  const picker=document.getElementById('month-picker');
   picker.addEventListener('change',()=>{ updateLabel(); loadMonth(picker.value); });
-  // 頁面載入時自動帶出已存的資料
   loadMonth(picker.value);
+}
+
+function openAddMonth(){
+  document.getElementById('new-month-year').value=_now.getFullYear();
+  document.getElementById('new-month-month').value=_now.getMonth()+1;
+  updateAddMonthHint();
+  document.getElementById('add-month-overlay').style.display='flex';
+}
+
+function closeAddMonth(){
+  document.getElementById('add-month-overlay').style.display='none';
+}
+
+function updateAddMonthHint(){
+  const y=Number(document.getElementById('new-month-year').value);
+  const m=Number(document.getElementById('new-month-month').value);
+  if(!y||!m) return;
+  const key=y+'-'+m;
+  const hint=document.getElementById('add-month-hint');
+  const hasSaved=snapshots.find(s=>s.key===key);
+  const inList=activeMonths.includes(key);
+  if(hasSaved){
+    hint.textContent='此月份已有存檔，切換後可繼續編修。';
+    hint.style.color='var(--blue-md)';
+  } else if(inList){
+    hint.textContent='此月份已建立（尚未存入），切換後繼續填寫。';
+    hint.style.color='var(--amber-md)';
+  } else {
+    const last=[...snapshots].sort((a,b)=>a.key>b.key?-1:1)[0];
+    hint.textContent=last?'新月份，可複製「'+getMonthLabel(last.key)+'」的預算項目。':'新月份，將建立空白預算。';
+    hint.style.color='var(--text-tertiary)';
+  }
+}
+
+function confirmAddMonth(){
+  const y=Number(document.getElementById('new-month-year').value);
+  const m=Number(document.getElementById('new-month-month').value);
+  if(!y||!m||m<1||m>12){ alert('請輸入正確的年份和月份'); return; }
+  const key=y+'-'+m;
+  closeAddMonth();
+
+  if(!activeMonths.includes(key)){
+    activeMonths.push(key);
+    try{ localStorage.setItem('finance_v2_months',JSON.stringify(activeMonths)); }catch(e){}
+  }
+
+  rebuildPicker(key);
+  document.getElementById('month-picker').value=key;
+  updateLabel();
+
+  const existing=snapshots.find(s=>s.key===key);
+  if(existing){
+    loadMonth(key);
+  } else {
+    const copyCheck=document.getElementById('copy-budget-check').checked;
+    const last=[...snapshots].sort((a,b)=>a.key>b.key?-1:1)[0];
+    if(copyCheck && last){
+      TYPES.forEach(t=>{ if(last.budget[t]) DATA.budget[t]=JSON.parse(JSON.stringify(last.budget[t])); });
+    } else {
+      DATA.budget={
+        income:[{name:'薪水',val:0},{name:'獎金',val:0}],
+        fixed:[{name:'房貸',val:0},{name:'車貸',val:0},{name:'信貸',val:0},{name:'管理費',val:0},{name:'電費',val:0}],
+        daily:[{name:'餐費',val:0},{name:'交通',val:0},{name:'保健',val:0},{name:'美甲美睫',val:0},{name:'特別預算',val:0}],
+        reserve:[{name:'女兒註冊費',val:0},{name:'年繳保險費',val:0}],
+        invest:[{name:'台股投資',val:0}]
+      };
+    }
+    DATA.actual={fixed:{},daily:{},reserve:{},invest:{}};
+    ['b-taishin','b-cathay','tw-val','tw-cost','fp-val','fp-cost','fx-val','fx-cost'].forEach(id=>{ document.getElementById(id).value=0; });
+    document.getElementById('fx-rate').value=32;
+    renderBudget(); renderActual(); recalc();
+  }
 }
 
 function loadMonth(val){
@@ -425,7 +551,11 @@ function saveSnapshot(){
   const idx=snapshots.findIndex(s=>s.key===key);
   if(idx>=0) snapshots[idx]=snap; else snapshots.push(snap);
   snapshots.sort((a,b)=>a.key>b.key?1:-1);
-  try{ localStorage.setItem('finance_v2_snapshots',JSON.stringify(snapshots)); }catch(e){}
+  if(!activeMonths.includes(key)){ activeMonths.push(key); }
+  try{
+    localStorage.setItem('finance_v2_snapshots',JSON.stringify(snapshots));
+    localStorage.setItem('finance_v2_months',JSON.stringify(activeMonths));
+  }catch(e){}
   const btn=document.getElementById('save-btn');
   btn.textContent='已存入 '+label+' ！';
   setTimeout(()=>{ btn.innerHTML='存入 <span id="save-month-label">'+label+'</span> 的紀錄'; },2000);
@@ -434,7 +564,12 @@ function saveSnapshot(){
 function clearHistory(){
   if(!confirm('確定要清除所有歷史紀錄嗎？')) return;
   snapshots=[];
-  try{ localStorage.removeItem('finance_v2_snapshots'); }catch(e){}
+  activeMonths=[_curKey];
+  try{
+    localStorage.removeItem('finance_v2_snapshots');
+    localStorage.setItem('finance_v2_months',JSON.stringify(activeMonths));
+  }catch(e){}
+  rebuildPicker(_curKey);
   renderHistory();
 }
 
